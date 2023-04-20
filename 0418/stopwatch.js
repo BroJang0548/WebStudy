@@ -20,20 +20,14 @@ class swComponent extends HTMLElement {
       this.startBtn = this.shadowRoot.querySelector('.start');
       this.stopBtn = this.shadowRoot.querySelector('.stop');
       this.resetBtn = this.shadowRoot.querySelector('.reset');
-      // console.log(this.shadowRoot.getElementsByClassName('start')); //ㅋ..안되네
-      // getElementById만 있나..
       
-
-      //document.getElementById는 shadowDOM 내에서 못찾음
-      // bind로 새로운 함수를 생성
       this.startBtn.addEventListener('click', this.start.bind(this)); 
       this.stopBtn.addEventListener('click', this.stop.bind(this));
       this.resetBtn.addEventListener('click', this.reset.bind(this));
     }
     start() {
       if (!this.startTime) {
-        // Date.now()가 더 빠름;;
-        // getHours 등의 format은 느림..
+
         this.startTime = Date.now() - this.time;
       }
       this.countTime = setInterval(() => {
@@ -46,7 +40,6 @@ class swComponent extends HTMLElement {
     }
   
     stop() {
-      // countTime 종료
       clearInterval(this.countTime);
       this.countTime = null;
       this.startTime = null;
@@ -72,5 +65,4 @@ class swComponent extends HTMLElement {
         this.timeDisplay.textContent = `${hours}:${minutes}:${seconds}.${milliseconds}`;
     }
 }
-// 쳇.. 커스텀 태그는 '-'를 꼭 붙여야되네..
 customElements.define('stopwatch-component', swComponent);

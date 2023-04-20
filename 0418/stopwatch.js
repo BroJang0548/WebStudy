@@ -31,7 +31,6 @@ class swComponent extends HTMLElement {
         this.startTime = Date.now() - this.time;
       }
       this.countTime = setInterval(() => {
-        // 실행 타임
         this.time = Date.now() - this.startTime;
         this.updateTimeDisplay();
       }, 10);
@@ -57,7 +56,6 @@ class swComponent extends HTMLElement {
     }
 
     updateTimeDisplay() {
-        // ms
         const hours = Math.floor(this.time / (1000*60*60)).toString().padStart(2,'0');
         const minutes = Math.floor(this.time / (1000*60)).toString().padStart(2, '0');
         const seconds = Math.floor((this.time % (1000*60)) / 1000).toString().padStart(2, '0');

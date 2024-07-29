@@ -328,3 +328,306 @@ public class MemoryMemberRepository implements MemberRepository {
 
 
 
+## 스프링 웹 개발: 회원 관리 예제 테스트 케이스 작성
+
+### 테스트 케이스의 필요성
+
+* 개발한 기능이 정상적으로 동작하는지 검증합니다.
+* 메인 메서드나 컨트롤러를 통한 테스트는 준비 및 반복 실행이 어렵고, 여러 테스트를 한 번에 실행하기 어렵습니다.
+* JUnit 프레임워크를 사용하면 테스트 코드를 작성하고 실행하여 효율적으로 검증할 수 있습니다.
+
+### 테스트 케이스 작성 방법
+
+1. 테스트 클래스 생성: 테스트 대상 클래스와 동일한 패키지에 `클래스명Test` 형식으로 클래스를 생성합니다. (예: `MemoryMemberRepositoryTest`)
+2. `@Test` 어노테이션 추가: 테스트 메서드에 `@Test` 어노테이션을 붙여 테스트 메서드임을 명시합니다.
+3. 테스트 코드 작성:
+    - 테스트 대상 객체 생성 및 데이터 준비
+    - 테스트 대상 메서드 실행
+    - 예상 결과와 실제 결과 비교 (Assertion)
+
+### 테스트 예시 (MemoryMemberRepositoryTest)
+
+```java
+class MemoryMemberRepositoryTest {
+    MemoryMemberRepository repository = new MemoryMemberRepository();
+
+    @AfterEach // 각 테스트 메서드 실행 후 실행되는 메서드
+    public void afterEach() {
+        repository.clearStore(); // 테스트 데이터 초기화
+    }
+
+    @Test
+    public void save() {
+        // given: 데이터 준비
+        Member member = new Member();
+        member.setName("spring");
+
+        // when: 메서드 실행
+        repository.save(member);
+
+        // then: 결과 검증
+        Member result = repository.findById(member.getId()).get();
+        assertThat(member).isEqualTo(result);
+    }
+
+    @Test
+    public void findByName() {
+        // given
+        Member member1 = new Member();
+        member1.setName("spring1");
+        repository.save(member1);
+
+        Member member2 = new Member();
+        member2.setName("spring2");
+        repository.save(member2);
+
+        // when
+        Member result = repository.findByName("spring1").get();
+
+        // then
+        assertThat(result).isEqualTo(member1);
+    }
+
+    // findAll 테스트 생략
+}
+```
+
+### 설명
+
+* `@AfterEach`: 각 테스트 메서드 실행 후 저장소를 초기화하여 테스트 간 데이터 의존성을 제거합니다.
+* `assertThat`: AssertJ 라이브러리의 Assertion 메서드로, 예상 결과와 실제 결과를 비교합니다.
+* `isEqualTo`: 두 객체의 값이 같은지 비교합니다.
+
+### 추가 정보
+
+* TDD(Test-Driven Development): 테스트 코드를 먼저 작성하고 구현하는 개발 방식으로, 코드 품질 향상에 도움이 됩니다.
+* 테스트는 순서에 의존하지 않고 독립적으로 실행되어야 합니다.
+* 빌드 도구를 통해 여러 테스트를 한 번에 실행하고 결과를 확인할 수 있습니다.
+
+
+
+
+
+## 스프링 웹 개발: 회원 관리 예제 서비스 클래스 구현
+
+### 서비스 클래스 (`MemberService`)
+
+* 회원 리포지토리를 사용하여 비즈니스 로직을 처리합니다.
+* 핵심 비즈니스 로직을 담당하며, 컨트롤러와 리포지토리 사이의 중간 역할을 수행합니다.
+* 비즈니스 용어를 사용하여 메서드 이름을 정의합니다. (예: `join`, `findMembers`)
+
+```java
+public class MemberService {
+    private final MemberRepository memberRepository = new MemoryMemberRepository(); // 실제 구현체 주입
+
+    /**
+     * 회원 가입
+     */
+    public Long join(Member member) {
+        validateDuplicateMember(member); // 중복 회원 검증
+        memberRepository.save(member);
+        return member.getId();
+    }
+
+    /**
+     * 전체 회원 조회
+     */
+    public List<Member> findMembers() {
+        return memberRepository.findAll();
+    }
+
+    /**
+     * ID로 회원 조회
+     */
+    public Optional<Member> findOne(Long memberId) {
+        return memberRepository.findById(memberId);
+    }
+
+    /**
+     * 중복 회원 검증
+     */
+    private void validateDuplicateMember(Member member) {
+        memberRepository.findByName(member.getName())
+                .ifPresent(m -> {
+                    throw new IllegalStateException("이미 존재하는 회원입니다.");
+                });
+    }
+}
+```
+
+### 설명
+
+* `join`: 회원 가입 메서드
+    - `validateDuplicateMember` 메서드를 호출하여 중복 회원 검증을 수행합니다.
+    - 중복 회원이 없으면 `memberRepository.save`를 호출하여 회원 정보를 저장하고, 저장된 회원 ID를 반환합니다.
+    - 중복 회원이 있으면 `IllegalStateException` 예외를 발생시킵니다.
+* `findMembers`: 전체 회원 조회 메서드
+    - `memberRepository.findAll`을 호출하여 모든 회원 리스트를 반환합니다.
+* `findOne`: ID로 회원 조회 메서드
+    - `memberRepository.findById`를 호출하여 해당 ID의 회원 정보를 Optional로 반환합니다.
+* `validateDuplicateMember`: 중복 회원 검증 메서드 (private)
+    - `memberRepository.findByName`으로 동일한 이름의 회원이 있는지 확인합니다.
+    - 동일한 이름의 회원이 존재하면 `IllegalStateException` 예외를 발생시킵니다.
+
+### 추가 정보
+
+* `MemberRepository` 인터페이스를 사용하여 데이터 저장소 구현체를 쉽게 변경할 수 있습니다. (예: `MemoryMemberRepository` -> `JpaMemberRepository`)
+* `Optional`을 사용하여 null 처리를 안전하게 합니다.
+* `ifPresent`: Optional 객체에 값이 있을 경우에만 실행되는 메서드입니다.
+
+
+
+
+
+## 스프링 웹 개발: 회원 관리 예제 테스트 케이스 개선 및 DI 소개
+
+### 테스트 케이스 자동 생성
+
+* IntelliJ 단축키: `Cmd + Shift + T` (Mac) 또는 `Ctrl + Shift + T` (Windows)를 사용하여 테스트 클래스를 자동으로 생성할 수 있습니다.
+* 테스트 클래스 생성 시 JUnit5 라이브러리를 선택하고, 테스트할 메서드를 선택하여 자동으로 테스트 코드 틀을 만들 수 있습니다.
+
+### 테스트 코드 작성 및 개선
+
+* given-when-then 패턴: 테스트 코드의 가독성을 높이기 위해 주석을 활용하여 given (데이터 준비), when (메서드 실행), then (결과 검증) 단계로 구분합니다.
+* 테스트 메서드 분리: 각각의 기능을 독립적으로 테스트하기 위해 테스트 메서드를 분리합니다.
+* `@AfterEach` 어노테이션: 각 테스트 메서드 실행 후 데이터를 초기화하여 테스트 간의 의존성을 제거합니다.
+* 예외 상황 테스트: `assertThrows` 메서드를 사용하여 예외 발생 여부를 검증합니다.
+
+### 의존성 주입 (Dependency Injection, DI)
+
+* 기존 코드: `MemberService` 클래스 내부에서 `MemoryMemberRepository` 객체를 직접 생성했습니다.
+* 개선된 코드: `MemberService` 클래스의 생성자를 통해 `MemberRepository` 객체를 외부에서 주입받도록 변경했습니다.
+
+```java
+public class MemberService {
+    private final MemberRepository memberRepository;
+
+    public MemberService(MemberRepository memberRepository) { // 생성자를 통한 의존성 주입
+        this.memberRepository = memberRepository;
+    }
+
+    // ... (나머지 코드는 동일)
+}
+```
+
+* 테스트 코드에서 `MemoryMemberRepository` 객체를 생성하고, `MemberService` 생성자에 주입하여 테스트합니다.
+
+```java
+@BeforeEach
+public void beforeEach() {
+    memberRepository = new MemoryMemberRepository();
+    memberService = new MemberService(memberRepository);
+}
+```
+
+### DI의 장점
+
+* 객체 간의 결합도를 낮춰 유연하고 확장 가능한 코드를 작성할 수 있습니다.
+* 테스트 코드 작성 시 테스트 대상 객체의 의존성을 쉽게 변경하거나 목(Mock) 객체를 주입하여 테스트를 용이하게 합니다.
+
+### 추가 정보
+
+* DI는 스프링 프레임워크의 핵심 개념 중 하나입니다.
+
+
+
+
+
+## 스프링 웹 개발: 회원 관리 예제 - 스프링 빈과 의존관계 설정
+
+### 스프링 컨테이너와 스프링 빈
+
+* **스프링 컨테이너:** 스프링 빈을 생성하고 관리하는 역할을 합니다.
+* **스프링 빈:** 스프링 컨테이너에 등록된 객체로, 스프링의 다양한 기능을 활용할 수 있습니다.
+* **@Controller, @Service, @Repository**: 스프링 빈으로 등록될 클래스에 붙이는 어노테이션입니다.
+
+### 컴포넌트 스캔과 자동 의존관계 설정
+
+* **컴포넌트 스캔:** 스프링 부트 애플리케이션 시작 시 특정 패키지 하위의 클래스들을 탐색하여 스프링 빈으로 자동 등록합니다.
+* **자동 의존관계 설정:** `@Autowired` 어노테이션을 사용하여 스프링 컨테이너에 등록된 빈을 자동으로 주입합니다.
+
+### 컴포넌트 스캔의 동작 방식
+
+1. 스프링 부트 애플리케이션 시작 시 `@SpringBootApplication` 어노테이션이 붙은 클래스를 기준으로 컴포넌트 스캔을 시작합니다.
+2. 해당 패키지 및 하위 패키지에서 `@Component`, `@Controller`, `@Service`, `@Repository` 어노테이션이 붙은 클래스를 찾습니다.
+3. 찾은 클래스의 인스턴스를 생성하고 스프링 컨테이너에 등록합니다.
+4. `@Autowired` 어노테이션이 붙은 필드나 생성자에 스프링 컨테이너에 등록된 빈을 주입합니다.
+
+### 예시 코드
+
+```java
+@Controller // 스프링 빈으로 등록
+public class MemberController {
+    private final MemberService memberService;
+
+    @Autowired // 생성자 주입
+    public MemberController(MemberService memberService) {
+        this.memberService = memberService;
+    }
+
+    // ...
+}
+```
+
+### 싱글톤(Singleton)
+
+* 스프링 빈은 기본적으로 싱글톤으로 등록됩니다.
+* 싱글톤: 애플리케이션 전체에서 해당 빈의 인스턴스가 하나만 생성되어 공유됩니다.
+* 메모리 사용량을 줄이고, 객체 생성 비용을 절약할 수 있습니다.
+
+### 주의 사항
+
+* `@Component` 어노테이션을 아무 곳에나 사용하면 컴포넌트 스캔 대상이 되어 불필요한 빈이 등록될 수 있습니다.
+* 컴포넌트 스캔은 기본적으로 `@SpringBootApplication` 어노테이션이 붙은 클래스의 패키지 및 하위 패키지만 탐색합니다.
+* 다른 패키지의 컴포넌트를 스캔하려면 `@ComponentScan` 어노테이션을 사용하여 스캔 범위를 지정해야 합니다.
+
+
+## 스프링 웹 개발: 회원 관리 예제 - 스프링 빈 등록 방법
+
+### 스프링 빈 등록 방법
+
+* **컴포넌트 스캔 & 자동 의존관계 설정:** `@Component`, `@Controller`, `@Service`, `@Repository` 어노테이션을 사용하여 스프링이 자동으로 빈을 등록하고 의존관계를 설정합니다.
+* **자바 코드로 직접 스프링 빈 등록:** `@Configuration` 어노테이션을 사용하여 설정 클래스를 만들고, `@Bean` 어노테이션을 붙인 메서드를 통해 직접 스프링 빈을 등록합니다.
+
+### 자바 코드로 직접 스프링 빈 등록 예시
+
+```java
+@Configuration // 설정 클래스
+public class SpringConfig {
+
+    @Bean // 스프링 빈 등록
+    public MemberService memberService() {
+        return new MemberService(memberRepository());
+    }
+
+    @Bean
+    public MemberRepository memberRepository() {
+        return new MemoryMemberRepository();
+    }
+}
+```
+
+### DI (Dependency Injection) 방식
+
+* **생성자 주입:** 생성자를 통해 의존 관계를 주입하는 방식 (권장)
+* **필드 주입:** 필드에 `@Autowired` 어노테이션을 사용하여 의존 관계를 주입하는 방식 (권장하지 않음)
+* **세터 주입:** 세터 메서드에 `@Autowired` 어노테이션을 사용하여 의존 관계를 주입하는 방식 (권장하지 않음)
+
+### 생성자 주입의 장점
+
+* **불변성:** final 키워드를 사용하여 객체 생성 후 의존 관계를 변경할 수 없도록 합니다.
+* **누락 방지:** 의존 관계가 누락되면 컴파일 오류가 발생하여 조기에 문제를 발견할 수 있습니다.
+* **테스트 용이성:** 테스트 시 목(Mock) 객체를 쉽게 주입할 수 있습니다.
+
+### 스프링 빈 등록 시 주의 사항
+
+* `@Autowired`는 스프링 컨테이너가 관리하는 빈에만 사용할 수 있습니다.
+* 직접 생성한 객체나 스프링 빈이 아닌 객체에는 `@Autowired`를 사용할 수 없습니다.
+
+### 스프링 빈과 싱글톤
+
+* 스프링 빈은 기본적으로 싱글톤으로 등록되어 애플리케이션 전체에서 하나의 인스턴스만 공유됩니다.
+* 특별한 경우를 제외하고는 싱글톤 방식을 사용하는 것이 좋습니다.
+
+
+

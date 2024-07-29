@@ -631,3 +631,328 @@ public class SpringConfig {
 
 
 
+## 스프링 웹 개발: 회원 관리 예제 - 홈 화면 추가
+
+### 홈 화면 기능
+
+* 회원 가입 페이지로 이동하는 링크 제공
+* 회원 목록 페이지로 이동하는 링크 제공
+
+### `HomeController` 클래스
+
+```java
+@Controller
+public class HomeController {
+
+    @GetMapping("/") // 루트 URL 요청 시 호출
+    public String home() {
+        return "home"; // home.html 뷰 반환
+    }
+}
+```
+
+* `@GetMapping("/")`: 루트 URL (`/`)에 대한 GET 요청을 처리합니다.
+* `home()`: `home` 문자열을 반환하여 `home.html` 템플릿을 렌더링합니다.
+
+### `home.html` 템플릿
+
+```html
+<!DOCTYPE HTML>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div class="container">
+    <div>
+        <h1>Hello Spring</h1>
+        <p>회원 기능</p>
+        <ul>
+            <li><a href="/members/new">회원 가입</a></li>
+            <li><a href="/members">회원 목록</a></li>
+        </ul>
+    </div>
+</div> </body>
+</html>
+```
+
+* Thymeleaf 문법을 사용하여 링크를 생성합니다.
+* `/members/new`: 회원 가입 페이지 URL
+* `/members`: 회원 목록 페이지 URL
+
+### 동작 방식
+
+1. 웹 브라우저에서 `localhost:8080` (루트 URL)에 접속합니다.
+2. 스프링 부트는 `HomeController`의 `home()` 메서드를 호출합니다.
+3. `home()` 메서드는 `home` 문자열을 반환합니다.
+4. 스프링 부트는 `templates/home.html` 파일을 찾아 Thymeleaf 템플릿 엔진을 사용하여 HTML을 생성하고 웹 브라우저에 응답합니다.
+5. 웹 브라우저에는 회원 가입, 회원 목록 링크가 포함된 홈 화면이 표시됩니다.
+
+### 추가 정보
+
+* 스프링 부트는 컨트롤러에 매핑된 URL이 있으면 정적 파일보다 우선적으로 처리합니다.
+* 따라서 `static/index.html` 파일보다 `HomeController`가 우선적으로 실행됩니다.
+* 컨트롤러가 없으면 `static/index.html` 파일이 웰컴 페이지로 사용됩니다.
+
+
+
+
+
+
+## 스프링 웹 개발: 회원 관리 예제 - 회원 등록 기능 구현
+
+### 회원 등록 기능 요구사항
+
+* 회원 가입 페이지 제공
+* 회원 가입 폼에서 이름 입력 받기
+* 입력된 이름으로 회원 등록 후 홈 화면으로 리다이렉트
+
+### 컨트롤러 (`MemberController`)
+
+```java
+@Controller
+public class MemberController {
+
+    private final MemberService memberService;
+
+    @Autowired
+    public MemberController(MemberService memberService) {
+        this.memberService = memberService;
+    }
+
+    @GetMapping("/members/new") // 회원 가입 페이지
+    public String createForm() {
+        return "members/createMemberForm"; // 템플릿 파일 경로
+    }
+
+    @PostMapping("/members/new") // 회원 등록 처리
+    public String create(MemberForm form) {
+        Member member = new Member();
+        member.setName(form.getName());
+
+        memberService.join(member);
+
+        return "redirect:/"; // 홈 화면으로 리다이렉트
+    }
+}
+```
+
+* `createForm()`: 회원 가입 페이지를 보여주는 메서드 (`members/createMemberForm.html` 템플릿 렌더링)
+* `create()`: 회원 등록을 처리하는 메서드
+    - `MemberForm` 객체를 사용하여 폼 데이터를 받아옵니다.
+    - `Member` 객체를 생성하고 이름을 설정합니다.
+    - `memberService.join()` 메서드를 호출하여 회원 가입 로직을 수행합니다.
+    - `redirect:/`: 홈 화면으로 리다이렉트합니다.
+
+### 폼 객체 (`MemberForm`)
+
+```java
+public class MemberForm {
+    private String name;
+
+    // Getter, Setter 생략
+}
+```
+
+* 회원 가입 폼에서 입력받은 데이터를 저장하는 객체입니다.
+
+### 템플릿 (`members/createMemberForm.html`)
+
+```html
+<form action="/members/new" method="post">
+    <div class="form-group">
+        <label for="name">이름</label>
+        <input type="text" id="name" name="name" placeholder="이름을 입력하세요">
+    </div>
+    <button type="submit">등록</button>
+</form>
+```
+
+* `<form>` 태그: 데이터를 서버로 전송하는 역할을 합니다.
+    - `action`: 데이터를 전송할 URL (`/members/new`)
+    - `method`: 데이터 전송 방식 (POST)
+* `<input>` 태그: 사용자로부터 데이터를 입력받습니다.
+    - `type`: 입력 필드 유형 (text)
+    - `id`: 입력 필드의 고유 ID (name)
+    - `name`: 서버로 전송될 데이터의 키 (name)
+    - `placeholder`: 입력 필드에 표시될 힌트 문구
+
+### 동작 순서
+
+1. `/members/new` GET 요청: 회원 가입 페이지 (`createMemberForm.html`)가 표시됩니다.
+2. 회원 가입 폼 작성 후 등록 버튼 클릭: `/members/new` POST 요청이 전송됩니다.
+3. `create()` 메서드가 호출되어 회원 등록 로직을 수행합니다.
+4. 회원 등록 완료 후 `/` (홈 화면)으로 리다이렉트됩니다.
+
+### 추가 정보
+
+* HTTP GET 메서드: 데이터를 조회하는 데 사용됩니다.
+* HTTP POST 메서드: 데이터를 서버로 전송하여 등록, 수정, 삭제 등의 작업을 수행하는 데 사용됩니다.
+* 스프링 MVC는 폼 데이터를 자동으로 객체에 바인딩해줍니다. (예: `MemberForm` 객체)
+
+
+
+## 스프링 웹 개발: 회원 관리 예제 - 회원 목록 조회 기능 구현
+
+### 회원 목록 조회 기능 요구사항
+
+* `/members` URL로 접근 시 회원 목록 출력
+* 각 회원의 ID와 이름을 표시
+
+### 컨트롤러 (`MemberController`)
+
+```java
+@Controller
+public class MemberController {
+
+    // ... (생략)
+
+    @GetMapping("/members") // 회원 목록 조회
+    public String list(Model model) {
+        List<Member> members = memberService.findMembers(); // 모든 회원 조회
+        model.addAttribute("members", members); // 모델에 "members" 속성으로 추가
+        return "members/memberList"; // 템플릿 파일 경로
+    }
+}
+```
+
+* `list()`: 회원 목록을 조회하는 메서드
+    - `memberService.findMembers()` 메서드를 호출하여 모든 회원 데이터를 가져옵니다.
+    - 가져온 회원 데이터를 `members`라는 이름으로 모델에 추가합니다.
+    - `members/memberList.html` 템플릿을 렌더링합니다.
+
+### 템플릿 (`members/memberList.html`)
+
+```html
+<table>
+    <thead>
+    <tr>
+        <th>#</th>
+        <th>이름</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr th:each="member : ${members}">
+        <td th:text="${member.id}"></td>
+        <td th:text="${member.name}"></td>
+    </tr>
+    </tbody>
+</table>
+```
+
+* `th:each`: Thymeleaf 반복문으로, `members` 리스트의 각 요소를 `member` 변수에 할당하여 반복합니다.
+* `th:text`: Thymeleaf 문법으로, `member` 객체의 `id`와 `name` 값을 출력합니다.
+
+### 동작 순서
+
+1. `/members` GET 요청: 회원 목록 페이지 요청
+2. `list()` 메서드 호출: `MemberService`를 통해 모든 회원 데이터 조회
+3. 모델에 `members` 속성 추가
+4. `members/memberList.html` 템플릿 렌더링: Thymeleaf 엔진이 반복문을 사용하여 회원 목록을 HTML 테이블 형태로 생성
+5. 생성된 HTML 응답 전송: 웹 브라우저에 회원 목록 페이지 표시
+
+### 추가 정보
+
+* Thymeleaf의 `th:each`를 사용하여 컬렉션 데이터를 효과적으로 표현할 수 있습니다.
+* 현재 예제는 메모리 기반 저장소를 사용하므로 서버 재시작 시 데이터가 초기화됩니다.
+
+
+## 스프링 웹 개발: 회원 관리 예제 - H2 데이터베이스 설치 및 테이블 생성
+
+### H2 데이터베이스란?
+
+* 교육용 또는 테스트용으로 적합한 가벼운 데이터베이스입니다.
+* 웹 기반 콘솔을 제공하여 쉽게 데이터를 관리할 수 있습니다.
+* MySQL, Oracle 등과 같은 실제 데이터베이스를 사용하기 전에 개발 단계에서 활용하기 좋습니다.
+
+### H2 데이터베이스 설치
+
+1. H2 데이터베이스 다운로드: [https://www.h2database.com/html/download.html]([유효하지 않은 URL 삭제됨] "Platform-Independent Zip" 파일을 다운로드합니다.
+2. 압축 해제: 다운로드한 파일의 압축을 해제합니다.
+3. 실행 파일 실행: 압축 해제된 폴더의 `bin` 디렉토리에서 다음 명령어를 실행합니다.
+    - Windows: `h2.bat` 또는 `h2w.bat`
+    - Mac: `chmod 755 h2.sh` (최초 실행 시 권한 부여) 후 `./h2.sh`
+4. 웹 콘솔 접속: 브라우저에서 `http://localhost:8082`에 접속합니다.
+5. 데이터베이스 연결 설정:
+    - JDBC URL: `jdbc:h2:~/test` (최초 연결 시)
+    - 사용자 이름: `sa`
+    - 비밀번호: (빈칸)
+    - 연결 버튼 클릭 후 `test.mv.db` 파일 생성 확인
+
+### 테이블 생성 (DDL)
+
+```sql
+CREATE TABLE members (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    name VARCHAR(255)
+);
+```
+
+* `members`: 회원 정보를 저장하는 테이블
+* `id`: 회원 고유 ID (Bigint 타입, 자동 증가)
+* `name`: 회원 이름 (Varchar 타입)
+
+### 데이터베이스 연결 설정 변경
+
+* 파일 직접 접근 방식은 동시 접근에 제약이 있으므로, 소켓 통신 방식으로 변경합니다.
+* JDBC URL: `jdbc:h2:tcp://localhost/~/test`
+
+### 추가 정보
+
+* H2 데이터베이스는 웹 콘솔을 통해 쿼리 실행, 데이터 조회 및 수정 등을 편리하게 할 수 있습니다.
+* 테이블 생성 후에는 `SELECT * FROM members;` 쿼리를 실행하여 테이블이 정상적으로 생성되었는지 확인할 수 있습니다.
+* 실제 개발 환경에서는 MySQL, Oracle 등의 데이터베이스를 사용하며, H2 데이터베이스는 개발 및 테스트 단계에서 주로 활용됩니다.
+
+
+
+
+## 스프링 웹 개발: 회원 관리 예제 - 순수 JDBC로 회원 저장소 구현 및 데이터베이스 연동
+
+### 순수 JDBC란?
+
+* 자바에서 데이터베이스에 접근하기 위한 표준 API (Java Database Connectivity)
+* SQL 쿼리를 직접 작성하고 실행해야 하므로 번거롭고 복잡합니다.
+* 과거에는 스프링 프레임워크 없이 순수 JDBC를 사용하여 개발했습니다.
+
+### JDBC 회원 저장소 구현 (`JdbcMemberRepository`)
+
+1. **의존성 추가:** `build.gradle` 파일에 `spring-boot-starter-jdbc`, `com.h2database:h2` 의존성을 추가합니다.
+2. **데이터 소스 설정:** `application.properties` 파일에 H2 데이터베이스 연결 정보를 설정합니다.
+    ```
+    spring.datasource.url=jdbc:h2:tcp://localhost/~/test
+    spring.datasource.driver-class-name=org.h2.Driver
+    ```
+3. **`JdbcMemberRepository` 클래스 생성:** `MemberRepository` 인터페이스를 구현하고, JDBC API를 사용하여 데이터베이스에 접근합니다.
+    - `DataSource` 객체를 스프링 빈으로 주입받아 사용합니다.
+    - 각 메서드에서 SQL 쿼리를 작성하고 실행합니다.
+    - 예외 처리 및 리소스 반환 코드를 포함합니다. (자세한 코드는 강의 자료 참고)
+4. **스프링 설정 변경:** `SpringConfig` 클래스에서 `MemberRepository` 빈을 `JdbcMemberRepository`로 변경합니다.
+    ```java
+    @Bean
+    public MemberRepository memberRepository() {
+        return new JdbcMemberRepository(dataSource);
+    }
+    ```
+
+### 스프링 부트의 JDBC 지원
+
+* 스프링 부트는 `spring-boot-starter-jdbc` 의존성을 통해 JDBC 연결 및 트랜잭션 관리를 자동으로 처리합니다.
+* `DataSource` 객체를 스프링 빈으로 등록하여 개발자가 편리하게 사용할 수 있도록 제공합니다.
+* `JdbcTemplate`과 같은 편리한 추상화 기능을 제공하여 JDBC 코드를 간결하게 작성할 수 있습니다. (다음 강의에서 다룸)
+
+### 개방 폐쇄 원칙 (OCP)
+
+* **확장에는 열려있고, 수정에는 닫혀있어야 한다**는 객체 지향 설계 원칙입니다.
+* 인터페이스를 활용하여 구현체를 변경하더라도 기존 코드에 영향을 주지 않도록 설계할 수 있습니다.
+* 스프링의 DI(Dependency Injection)는 이러한 개방 폐쇄 원칙을 효과적으로 적용할 수 있도록 도와줍니다.
+
+### 예제 실행 결과
+
+* 회원 등록 및 조회 기능이 정상적으로 동작하며, 데이터는 H2 데이터베이스에 저장됩니다.
+* 서버를 재시작해도 데이터베이스에 저장된 데이터는 유지됩니다.
+
+### 추가 정보
+
+* 순수 JDBC는 복잡하고 번거롭지만, 데이터베이스 동작 방식을 이해하는 데 도움이 됩니다.
+* 스프링 부트는 JDBC를 더 쉽게 사용할 수 있도록 다양한 기능을 제공합니다.
+
+
+
+

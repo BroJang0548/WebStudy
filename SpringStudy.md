@@ -956,3 +956,332 @@ CREATE TABLE members (
 
 
 
+
+## 스프링 웹 개발: 회원 관리 예제 - 스프링 통합 테스트
+
+### 스프링 통합 테스트란?
+
+* 스프링 컨테이너를 실행하여 실제 환경과 유사하게 테스트하는 방식입니다.
+* 데이터베이스 연동까지 테스트할 수 있어, 단위 테스트보다 더욱 현실적인 테스트가 가능합니다.
+* 하지만 스프링 컨테이너를 실행해야 하므로 단위 테스트보다 실행 속도가 느립니다.
+
+### 스프링 통합 테스트 작성 방법
+
+1. `@SpringBootTest` 어노테이션 추가: 테스트 클래스에 `@SpringBootTest` 어노테이션을 붙여 스프링 컨테이너를 실행합니다.
+2. `@Transactional` 어노테이션 추가: 테스트 메서드에 `@Transactional` 어노테이션을 붙여 테스트 후 데이터베이스를 롤백합니다.
+3. 의존성 주입: `@Autowired` 어노테이션을 사용하여 스프링 컨테이너에 등록된 빈을 주입받습니다. (필드 주입 방식)
+4. 테스트 코드 작성: 단위 테스트와 동일한 방식으로 테스트 코드를 작성합니다.
+
+### 테스트 예시 (MemberServiceIntegrationTest)
+
+```java
+@SpringBootTest
+@Transactional // 테스트 후 데이터 롤백
+class MemberServiceIntegrationTest {
+
+    @Autowired MemberService memberService; // 스프링 컨테이너에서 빈 주입
+    @Autowired MemberRepository memberRepository;
+
+    @Test
+    void 회원가입() {
+        // given
+        Member member = new Member();
+        member.setName("spring");
+
+        // when
+        Long saveId = memberService.join(member);
+
+        // then
+        Member findMember = memberRepository.findById(saveId).get();
+        assertThat(member.getName()).isEqualTo(findMember.getName());
+    }
+
+    // 중복 회원 예외 테스트 생략
+}
+```
+
+### 설명
+
+* `@SpringBootTest`: 스프링 컨테이너를 실행하여 테스트 환경을 구성합니다.
+* `@Transactional`: 테스트 메서드 실행 후 데이터베이스 트랜잭션을 롤백하여 데이터를 초기 상태로 되돌립니다.
+* `@Autowired`: 스프링 컨테이너에 등록된 `MemberService`, `MemberRepository` 빈을 필드에 주입합니다.
+
+### 단위 테스트 vs. 통합 테스트
+
+* **단위 테스트:**
+    - 스프링 컨테이너 없이 순수 자바 코드로 테스트합니다.
+    - 실행 속도가 빠르고, 특정 기능을 독립적으로 테스트할 수 있습니다.
+    - 외부 시스템 (데이터베이스 등)과의 연동은 목(Mock) 객체를 사용하여 테스트합니다.
+* **통합 테스트:**
+    - 스프링 컨테이너를 실행하여 실제 환경과 유사하게 테스트합니다.
+    - 데이터베이스 연동까지 테스트할 수 있어 더욱 현실적인 테스트가 가능합니다.
+    - 실행 속도가 느리고, 여러 컴포넌트 간의 상호 작용을 테스트하기 때문에 오류 원인 분석이 어려울 수 있습니다.
+
+### 결론
+
+* 단위 테스트와 통합 테스트는 각각 장단점이 있으며, 상황에 따라 적절히 활용해야 합니다.
+* 일반적으로 단위 테스트를 먼저 작성하고, 필요한 경우에 통합 테스트를 추가하는 것이 좋습니다.
+* 스프링 부트는 `@SpringBootTest`, `@Transactional` 어노테이션을 통해 통합 테스트를 편리하게 지원합니다.
+
+
+
+
+
+## 스프링 웹 개발: 회원 관리 예제 - 스프링 통합 테스트 활용 및 JdbcTemplate 적용
+
+### 스프링 통합 테스트 활용
+
+* 기존 `MemoryMemberRepositoryTest`를 `MemberServiceIntegrationTest`로 변경하여 스프링 컨테이너와 함께 테스트합니다.
+* `@SpringBootTest` 어노테이션을 추가하여 스프링 부트 테스트 환경을 구성합니다.
+* `@Transactional` 어노테이션을 추가하여 테스트 실행 후 데이터베이스를 롤백하여 데이터를 초기화합니다.
+* `@Autowired` 어노테이션을 사용하여 스프링 컨테이너에서 `MemberService`와 `MemberRepository` 빈을 주입받습니다.
+* 테스트 메서드는 기존 단위 테스트와 동일하게 작성합니다.
+
+### JdbcTemplate 소개
+
+* JDBC API의 반복적인 코드를 제거하고 편리하게 사용할 수 있도록 스프링에서 제공하는 라이브러리입니다.
+* SQL 쿼리는 직접 작성해야 하지만, 반복적인 작업을 줄여 개발 생산성을 높입니다.
+* 실무에서도 많이 사용되는 기술입니다.
+
+### JdbcTemplate 적용 (`JdbcMemberRepository`)
+
+1. `JdbcTemplate` 객체 생성: `DataSource`를 생성자에 주입받아 `JdbcTemplate` 객체를 생성합니다.
+2. SQL 쿼리 실행: `JdbcTemplate`의 다양한 메서드를 사용하여 SQL 쿼리를 실행하고 결과를 처리합니다.
+    - `queryForObject`: 단일 결과 조회
+    - `query`: 여러 결과 조회
+    - `update`: INSERT, UPDATE, DELETE 등의 쿼리 실행
+3. `RowMapper` 인터페이스 구현: 조회 결과를 객체로 매핑하는 역할을 합니다.
+    - `mapRow` 메서드를 구현하여 `ResultSet`의 데이터를 객체에 매핑합니다.
+
+### 스프링 설정 변경
+
+* `SpringConfig` 클래스에서 `MemberRepository` 빈을 `JdbcMemberRepository`로 변경합니다.
+* `JdbcMemberRepository` 생성자에 `DataSource`를 주입합니다.
+
+### 실행 결과
+
+* 스프링 통합 테스트를 통해 데이터베이스 연동까지 테스트할 수 있습니다.
+* `JdbcMemberRepository`를 사용하여 회원 정보를 데이터베이스에 저장하고 조회할 수 있습니다.
+* 서버 재시작 후에도 데이터베이스에 저장된 데이터는 유지됩니다.
+
+### 추가 정보
+
+* JdbcTemplate은 SQL 쿼리 작성이 필요하지만, 순수 JDBC보다 코드량이 적고 가독성이 좋습니다.
+* 스프링 데이터 JPA를 사용하면 더욱 편리하게 데이터베이스를 다룰 수 있습니다. 
+* 테스트 코드 작성은 실제 개발보다 많은 시간과 노력이 필요하지만, 코드 품질을 높이고 안정적인 서비스 운영을 위해 중요합니다.
+
+
+## 스프링 웹 개발: 회원 관리 예제 - JPA 적용
+
+### JPA (Java Persistence API)란?
+
+* 자바 ORM (Object-Relational Mapping) 기술 표준입니다.
+* 객체와 관계형 데이터베이스의 테이블을 매핑하여 객체 지향적으로 데이터를 관리할 수 있도록 합니다.
+* SQL 쿼리를 직접 작성하지 않고, 객체를 통해 데이터를 조작할 수 있어 개발 생산성을 높입니다.
+* 스프링 부트는 JPA를 쉽게 사용할 수 있도록 지원합니다.
+
+### JPA 적용 방법
+
+1. **의존성 추가:** `build.gradle` 파일에 `spring-boot-starter-data-jpa` 의존성을 추가합니다.
+2. **JPA 설정:** `application.properties` 파일에 JPA 관련 설정을 추가합니다.
+    ```
+    spring.jpa.show-sql=true # JPA가 생성하는 SQL 출력
+    spring.jpa.hibernate.ddl-auto=none # 자동 DDL 생성 기능 비활성화
+    ```
+3. **엔티티 클래스 생성:** `@Entity` 어노테이션을 붙여 JPA가 관리하는 엔티티 클래스임을 명시하고, `@Id`, `@GeneratedValue` 어노테이션으로 기본 키 설정을 합니다.
+    ```java
+    @Entity
+    public class Member {
+        @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private Long id;
+
+        private String name;
+
+        // Getter, Setter 생략
+    }
+    ```
+4. **JPA 리포지토리 인터페이스 생성:** `JpaRepository` 인터페이스를 상속받아 JPA 리포지토리 인터페이스를 생성합니다.
+    ```java
+    public interface MemberRepository extends JpaRepository<Member, Long> {
+    }
+    ```
+    - `JpaRepository<Member, Long>`: 첫 번째 타입은 엔티티 클래스, 두 번째 타입은 엔티티의 기본 키 타입입니다.
+5. **스프링 설정 변경:** `SpringConfig` 클래스에서 `MemberRepository` 빈을 `JpaMemberRepository`로 변경합니다. (별도의 구현 클래스 없이 인터페이스만으로 동작합니다.)
+
+### JPA 동작 방식
+
+1. 스프링 부트 시작 시 `EntityManager` 객체를 생성하고 관리합니다.
+2. `JpaRepository` 인터페이스를 상속받은 리포지토리 인터페이스를 구현하는 프록시 객체를 생성합니다.
+3. 개발자가 리포지토리 메서드를 호출하면, 프록시 객체가 `EntityManager`를 사용하여 데이터베이스에 접근하고 결과를 반환합니다.
+
+### JPA 장점
+
+* SQL 쿼리를 직접 작성하지 않아도 됩니다.
+* 객체 중심으로 데이터를 관리할 수 있습니다.
+* 개발 생산성이 향상됩니다.
+* 데이터베이스 종류에 상관없이 동일한 코드를 사용할 수 있습니다. (DBMS 독립성)
+
+### 주의 사항
+
+* JPA는 강력한 기능을 제공하지만, 복잡한 쿼리 작성이나 성능 최적화를 위해서는 SQL에 대한 이해가 필요합니다.
+* JPA를 효과적으로 사용하려면 엔티티 설계 및 관계 매핑에 대한 충분한 학습이 필요합니다.
+
+
+
+
+
+## 스프링 웹 개발: 회원 관리 예제 - 스프링 데이터 JPA 적용
+
+### 스프링 데이터 JPA란?
+
+* 스프링 부트와 JPA를 편리하게 사용할 수 있도록 지원하는 라이브러리입니다.
+* 기본적인 CRUD 기능 및 페이징 처리를 자동으로 제공합니다.
+* 메서드 이름으로 쿼리를 생성하는 기능을 제공하여 개발 생산성을 높입니다. (예: `findByName`, `findById`)
+* 실무에서 관계형 데이터베이스를 사용할 때 필수적인 기술입니다.
+
+### 스프링 데이터 JPA 적용 방법
+
+1. **의존성 추가:** `build.gradle` 파일에 `spring-boot-starter-data-jpa` 의존성을 추가합니다.
+2. **JPA 리포지토리 인터페이스 생성:** `JpaRepository` 인터페이스를 상속받고, 필요한 메서드를 추가합니다.
+    ```java
+    public interface SpringDataJpaMemberRepository extends JpaRepository<Member, Long>, MemberRepository {
+        @Override
+        Optional<Member> findByName(String name);
+    }
+    ```
+    - `JpaRepository<Member, Long>`: JPA에서 제공하는 기본 CRUD 기능을 사용할 수 있습니다.
+    - `MemberRepository`: 기존에 정의한 회원 리포지토리 인터페이스를 상속하여 추가적인 메서드를 정의할 수 있습니다.
+3. **스프링 설정 변경:** `SpringConfig` 클래스에서 `MemberRepository` 빈을 `SpringDataJpaMemberRepository`로 변경합니다.
+4. **`MemberService` 수정:** `MemberRepository`를 `SpringDataJpaMemberRepository`로 변경합니다.
+
+### 스프링 데이터 JPA의 장점
+
+* JPA를 더욱 쉽고 간편하게 사용할 수 있습니다.
+* 반복적인 CRUD 코드를 작성할 필요가 없습니다.
+* 쿼리 메서드 기능을 통해 메서드 이름으로 쿼리를 생성할 수 있습니다.
+* 페이징 처리 기능을 기본적으로 제공합니다.
+
+### 스프링 데이터 JPA 주의 사항
+
+* 스프링 데이터 JPA는 JPA를 편리하게 사용하도록 도와주는 도구일 뿐이며, JPA에 대한 이해가 필요합니다.
+* 복잡한 쿼리나 성능 최적화가 필요한 경우에는 JPQL 또는 Querydsl을 사용해야 합니다.
+
+### 추가 정보
+
+* 스프링 데이터 JPA는 다양한 기능을 제공하며, 공식 문서를 참고하여 자세히 학습할 수 있습니다.
+* 실무에서는 스프링 데이터 JPA와 함께 Querydsl을 사용하여 복잡한 동적 쿼리를 처리하는 경우가 많습니다.
+* JPA와 스프링 데이터 JPA는 현대적인 스프링 웹 개발에서 필수적인 기술입니다.
+
+
+
+
+## 스프링 웹 개발: 회원 관리 예제 - AOP (Aspect-Oriented Programming) 필요성
+
+### AOP (Aspect-Oriented Programming) 란?
+
+* **관점 지향 프로그래밍:** 핵심 로직과 공통 로직을 분리하여 개발하는 프로그래밍 패러다임입니다.
+* **핵심 관심 사항 (Core Concern):** 비즈니스 로직과 같이 핵심적인 기능을 담당하는 부분입니다.
+* **공통 관심 사항 (Cross-cutting Concern):** 로깅, 트랜잭션, 보안 등 여러 곳에서 사용되는 공통적인 기능을 담당하는 부분입니다.
+
+### AOP가 필요한 상황
+
+* **모든 메서드의 호출 시간 측정:** 각 메서드 시작 전과 종료 후에 시간을 측정하는 코드를 모든 메서드에 추가해야 합니다.
+* **공통 로직과 핵심 로직의 분리:** 시간 측정 로직은 핵심 비즈니스 로직과 섞여 있어 유지보수가 어렵습니다.
+* **반복적인 코드:** 시간 측정 로직을 모든 메서드에 중복해서 작성해야 합니다.
+* **변경 어려움:** 시간 측정 로직을 변경하려면 모든 메서드를 수정해야 합니다.
+
+### 예시: 시간 측정 로직 추가
+
+```java
+public class MemberService {
+
+    // ...
+
+    public Long join(Member member) {
+        long start = System.currentTimeMillis(); // 시간 측정 시작
+        try {
+            validateDuplicateMember(member);
+            memberRepository.save(member);
+            return member.getId();
+        } finally {
+            long finish = System.currentTimeMillis(); // 시간 측정 종료
+            long timeMs = finish - start;
+            System.out.println("join timeMs = " + timeMs); // 시간 출력
+        }
+    }
+}
+```
+
+* 위 코드처럼 시간 측정 로직을 모든 메서드에 추가해야 합니다.
+* 시간 측정 방식 변경 시 모든 메서드를 수정해야 합니다.
+* 핵심 로직과 시간 측정 로직이 섞여 가독성이 떨어지고 유지보수가 어렵습니다.
+
+### AOP를 사용하면?
+
+* 시간 측정 로직을 별도의 Aspect 클래스로 분리하여 관리할 수 있습니다.
+* 핵심 로직 코드를 수정하지 않고도 시간 측정 기능을 추가하거나 변경할 수 있습니다.
+* 코드 중복을 제거하고, 핵심 로직에 집중할 수 있습니다.
+
+### 결론
+
+* AOP는 공통 관심 사항을 핵심 로직에서 분리하여 모듈화하고, 재사용성을 높이는 데 효과적인 기술입니다.
+* 시간 측정 로직과 같이 여러 곳에서 사용되는 공통 로직을 처리하는 데 유용합니다.
+
+
+
+
+## 스프링 웹 개발: 회원 관리 예제 - AOP (Aspect-Oriented Programming) 적용
+
+### AOP (Aspect-Oriented Programming) 란?
+
+* 핵심 관심 사항(Core Concern)과 공통 관심 사항(Cross-cutting Concern)을 분리하여 개발하는 프로그래밍 패러다임입니다.
+* 공통 관심 사항을 모듈화하여 여러 곳에서 재사용할 수 있도록 합니다.
+* 스프링은 프록시(Proxy) 기반 AOP를 지원합니다.
+
+### AOP 적용 예시: 시간 측정 로직
+
+```java
+@Aspect
+@Component
+public class TimeTraceAop {
+
+    @Around("execution(* hello.hellospring..*(..))") // hello.hellospring 패키지 하위의 모든 메서드에 적용
+    public Object execute(ProceedingJoinPoint joinPoint) throws Throwable {
+        long start = System.currentTimeMillis();
+        System.out.println("START: " + joinPoint.toString());
+        try {
+            return joinPoint.proceed(); // 다음 메서드 호출
+        } finally {
+            long finish = System.currentTimeMillis();
+            long timeMs = finish - start;
+            System.out.println("END: " + joinPoint.toString() + " " + timeMs + "ms");
+        }
+    }
+}
+```
+
+* `@Aspect`: AOP 클래스임을 나타냅니다.
+* `@Around`: 메서드 실행 전후에 공통 로직을 적용합니다.
+* `execution(* hello.hellospring..*(..))`: `hello.hellospring` 패키지 및 하위 패키지의 모든 메서드에 적용합니다.
+* `ProceedingJoinPoint`: AOP가 적용되는 메서드 정보를 담고 있으며, `proceed()` 메서드를 통해 다음 메서드를 호출합니다.
+
+### AOP 동작 방식 (스프링 프록시)
+
+1. 스프링 컨테이너는 `@Aspect` 어노테이션이 붙은 클래스를 찾아 AOP 관련 정보를 읽어옵니다.
+2. AOP가 적용될 대상 객체(Target Object)를 생성합니다. (예: `MemberService`)
+3. 대상 객체를 감싸는 프록시 객체(Proxy Object)를 생성합니다.
+4. 스프링 컨테이너에 프록시 객체를 빈으로 등록합니다.
+5. 클라이언트가 대상 객체를 요청하면, 스프링 컨테이너는 프록시 객체를 제공합니다.
+6. 프록시 객체는 `@Around` 어노테이션이 붙은 메서드를 실행하여 공통 로직을 수행합니다.
+7. 공통 로직 실행 후 `ProceedingJoinPoint.proceed()` 메서드를 호출하여 대상 객체의 메서드를 실행합니다.
+8. 대상 객체의 메서드 실행 결과를 클라이언트에게 반환합니다.
+
+### AOP 적용 결과
+
+* `MemberService`의 모든 메서드 실행 시간이 로그로 출력됩니다.
+* 핵심 로직 코드는 변경하지 않고 공통 관심 사항을 분리하여 관리할 수 있습니다.
+
+### 추가 정보
+
+* AOP는 다양한 적용 방법과 기능을 제공합니다. (예: `@Before`, `@After`, `@AfterReturning`, `@AfterThrowing`)
+
